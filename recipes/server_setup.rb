@@ -27,6 +27,10 @@ end
 # Create and start volumes
 node['gluster']['server']['volumes'].each do |volume_name, volume_values|
   bricks = []
+
+  Chef::Log.info("Peers: #{volume_values['peers']}")
+  Chef::Log.info("Host FQDN: #{node['fqdn']}")
+
   # If the node is configured as a peer for the volume, create directories to use as bricks
   if volume_values['peers'].include?(node['fqdn']) || volume_values['peers'].include?(node['hostname'])
     # Use either configured LVM volumes or default LVM volumes

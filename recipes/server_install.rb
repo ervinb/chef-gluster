@@ -27,6 +27,9 @@ node['gluster']['server']['dependencies'].each do |d|
   end.run_action :install
 end
 
+Chef::Log.info("Installing AVAHI")
+include_recipe 'gluster::avahi' if node['gluster']['use_internal_network']
+
 # Install the server package
 package node['gluster']['server']['package']
 

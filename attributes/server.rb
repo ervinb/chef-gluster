@@ -62,6 +62,12 @@ default['gluster']['server']['bricks_waiting_to_join'] = ''
 default['lvm']['di-ruby-lvm']['compile_time'] = true
 default['lvm']['di-ruby-lvm-attrib']['compile_time'] = true
 
+# Self probing and internal network settings
+default['gluster']['server']['avahi_dependencies'] = %w(avahi-daemon avahi-utils libnss-mdns)
+default['gluster']['use_internal_network'] = true
+default['gluster']['server']['ssh_user'] = 'vagrant'
+default['gluster']['server']['internal_nic'] = "eth1"
+
 # In your role cookbook or similar, copy one of the following examples to create your cluster
 # This example will create three gluster volumes over two nodes, with different volume types
 # And with different sizes

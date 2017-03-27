@@ -32,19 +32,21 @@ node['gluster']['server']['volumes'].each do |volume_name, volume_values|
   Chef::Log.info("Host FQDN: #{node['fqdn']}")
 
   # If the node is configured as a peer for the volume, create directories to use as bricks
-  if volume_values['peers'].find{|peer| peer =~ /#{node['fqdn']}/} || volume_values['peers'].find{|peer| peer =~ /#{node['hostname']}/}
+  # if volume_values['peers'].find{|peer| peer =~ /#{node['fqdn']}/} || volume_values['peers'].find{|peer| peer =~ /#{node['hostname']}/}
     # Use either configured LVM volumes or default LVM volumes
     # Configure the LV's per gluster volume
     # Each LV is one brick
     if node['gluster']['server']['disks'].any?
       lvm_volume_group 'gluster' do
         physical_volumes node['gluster']['server']['disks']
+
         if volume_values.attribute?('filesystem')
           filesystem = volume_values['filesystem']
         else
           Chef::Log.warn('No filesystem specified, defaulting to xfs')
           filesystem = 'xfs'
         end
+
         # Even though this says volume_name, it's actually Brick Name. At the moment this method only supports one brick per volume per server
         logical_volume volume_name do
           size volume_values['size']
@@ -63,31 +65,63 @@ node['gluster']['server']['volumes'].each do |volume_name, volume_values|
       end
     end
 
+
     bricks << "#{node['gluster']['server']['brick_mount_path']}/#{volume_name}/#{node['gluster']['server']['brick_dir']}"
     # Save the array of bricks to the node's attributes
     node.normal['gluster']['server']['volumes'][volume_name]['bricks'] = bricks
-  else
-    Chef::Log.warn('This server is not configured for this volume')
+  # else
+  #   Chef::Log.warn('This server is not configured for this volume')
+  # end
+
+  #############################
+  unless volume_values['peers'].first =~ /#{node['fqdn']}/ || volume_values['peers'].first =~ /#{node['hostname']}/
+    Chef::Log.info("Self-probing from master ...")
+    # ssh into the host
+    # probe
+    bash "probe self from the master node" do
+      user "builder"
+      code <<-CMD
+        avahi-browse-domains -at --resolve
+        gfs_hosts=$(avahi-browse-domains -at --resolve | grep "hostname" | grep -oP "\\[\\K[^\\]]+" | sort | uniq)
+        echo "Detected local machines:\n $gfs_hosts"
+        for host in ${gfs_hosts}; do ssh -o StrictHostKeychecking=no cache-storage-1-ubuntu-1404.local "sudo gluster peer probe $host"; done
+      CMD
+    end
+
+    # # create the brick directory
+    directory "#{node['gluster']['server']['brick_mount_path']}/#{volume_name}/brick"
   end
+  # works with echo 'hi' ^
+  # disable tty in sudoers and it works with sudo
+  # Defaults:<user> !requiretty
+
 
   # Only continue if the node is the first peer in the array
   if volume_values['peers'].first =~ /#{node['fqdn']}/ || volume_values['peers'].first =~ /#{node['hostname']}/
-    # Configure the trusted pool if needed
-    volume_values['peers'].each do |peer|
-      next if peer =~ /#{node['fqdn']}/ || peer =~ /#{node['hostname']}/
-      execute "gluster peer probe #{peer}" do
-        action :run
-        not_if "egrep '^hostname.+=#{peer}$' /var/lib/glusterd/peers/*"
-        retries node['gluster']['server']['peer_retries']
-        retry_delay node['gluster']['server']['peer_retry_delay']
-      end
-      # Wait here until the peer reaches connected status (needed for volume create later)
-      execute "gluster peer status | sed -e '/Other names:/d' | grep -A 2 -B 1 #{peer} | grep 'Peer in Cluster (Connected)'" do
-        action :run
-        retries node['gluster']['server']['peer_wait_retries']
-        retry_delay node['gluster']['server']['peer_wait_retry_delay']
-      end
-    end
+
+    # >>>>>>>>>>
+    # # Configure the trusted pool if needed
+    # volume_values['peers'].each do |peer|
+    #
+    #   # skip if peer is the current node
+    #   next if peer =~ /#{node['fqdn']}/ || peer =~ /#{node['hostname']}/
+    #
+    #   execute "gluster peer probe #{peer}" do
+    #     action :run
+    #     not_if "egrep '^hostname.+=#{peer}$' /var/lib/glusterd/peers/*"
+    #     retries node['gluster']['server']['peer_retries']
+    #     retry_delay node['gluster']['server']['peer_retry_delay']
+    #   end
+    #   # Wait here until the peer reaches connected status (needed for volume create later)
+    #   execute "gluster peer status | sed -e '/Other names:/d' | grep -A 2 -B 1 #{peer} | grep 'Peer in Cluster (Connected)'" do
+    #     action :run
+    #     retries node['gluster']['server']['peer_wait_retries']
+    #     retry_delay node['gluster']['server']['peer_wait_retry_delay']
+    #   end
+    # end
+    # <<<<<<<<<<<
+
+    ###############################
 
     # Create the volume if it doesn't exist
     unless File.exist?("/var/lib/glusterd/vols/#{volume_name}/info")

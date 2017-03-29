@@ -5,6 +5,7 @@
 # Copyright 2015, Andrew Repton
 # Copyright 2015, Grant Ridder
 # Copyright 2015, Biola University
+# Copyright 2017, Ervin Barta
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -26,102 +27,80 @@ end
 
 # Create and start volumes
 node['gluster']['server']['volumes'].each do |volume_name, volume_values|
-  bricks = []
+  bricks         = []
+  volume_path    = "#{node['gluster']['server']['brick_mount_path']}/#{volume_name}"
+  brick_dir_path = "#{volume_path}/#{node['gluster']['server']['brick_dir']}"
+  master_node    = volume_values['peers'].first
 
-  Chef::Log.info("Peers: #{volume_values['peers']}")
-  Chef::Log.info("Host FQDN: #{node['fqdn']}")
+  # All nodes where this cookbook is ran, are considered to be peers and server_setup
+  # at the same time
 
-  # If the node is configured as a peer for the volume, create directories to use as bricks
-  # if volume_values['peers'].find{|peer| peer =~ /#{node['fqdn']}/} || volume_values['peers'].find{|peer| peer =~ /#{node['hostname']}/}
-    # Use either configured LVM volumes or default LVM volumes
-    # Configure the LV's per gluster volume
-    # Each LV is one brick
-    if node['gluster']['server']['disks'].any?
-      lvm_volume_group 'gluster' do
-        physical_volumes node['gluster']['server']['disks']
+  # Use either configured LVM volumes or default LVM volumes
+  # Configure the LV's per gluster volume
+  # Each LV is one brick
+  if node['gluster']['server']['disks'].any?
+    lvm_volume_group 'gluster' do
+      physical_volumes node['gluster']['server']['disks']
 
-        if volume_values.attribute?('filesystem')
-          filesystem = volume_values['filesystem']
-        else
-          Chef::Log.warn('No filesystem specified, defaulting to xfs')
-          filesystem = 'xfs'
-        end
-
-        # Even though this says volume_name, it's actually Brick Name. At the moment this method only supports one brick per volume per server
-        logical_volume volume_name do
-          size volume_values['size']
-          filesystem filesystem
-          mount_point "#{node['gluster']['server']['brick_mount_path']}/#{volume_name}"
-        end
+      if volume_values.attribute?('filesystem')
+        filesystem = volume_values['filesystem']
+      else
+        Chef::Log.warn('No filesystem specified, defaulting to xfs')
+        filesystem = 'xfs'
       end
-    else
-      Chef::Log.warn('No disks defined for LVM, create gluster on existing filesystem')
-      directory "#{node['gluster']['server']['brick_mount_path']}/#{volume_name}" do
-        owner 'root'
-        group 'root'
-        mode '0755'
-        recursive true
-        action :create
+
+      # Even though this says volume_name, it's actually Brick Name. At the moment this method only supports one brick per volume per server
+      logical_volume volume_name do
+        size volume_values['size']
+        filesystem filesystem
+        mount_point volume_path
       end
     end
+  else
+    Chef::Log.warn('No disks defined for LVM, create gluster on existing filesystem')
+    directory volume_path do
+      owner 'root'
+      group 'root'
+      mode '0755'
+      recursive true
+      action :create
+    end
+  end
 
+  bricks << brick_dir_path
 
-    bricks << "#{node['gluster']['server']['brick_mount_path']}/#{volume_name}/#{node['gluster']['server']['brick_dir']}"
-    # Save the array of bricks to the node's attributes
-    node.normal['gluster']['server']['volumes'][volume_name]['bricks'] = bricks
-  # else
-  #   Chef::Log.warn('This server is not configured for this volume')
-  # end
+  # Save the array of bricks to the node's attributes
+  node.normal['gluster']['server']['volumes'][volume_name]['bricks'] = bricks
 
-  #############################
-  unless volume_values['peers'].first =~ /#{node['fqdn']}/ || volume_values['peers'].first =~ /#{node['hostname']}/
-    Chef::Log.info("Self-probing from master ...")
-    # ssh into the host
-    # probe
-    bash "probe self from the master node" do
-      user "builder"
+  # If the current node isn't master, add it to the master pool by self probing
+  ## Requirements:
+  ## - the current node has SSH access to the master node
+  ## - the SSH user can run 'sudo' commands (!requiretty is set in /etc/sudoers)
+  ## - node FQDN is correctly set (preferably running avahi-daemon), and it's accessible
+
+  unless master_node =~ /#{node['fqdn']}/ || master_node =~ /#{node['hostname']}/
+    # Note that the hostname will be resolved on the current node and not on
+    # the master node -- '$' isn't esacaped
+    bash "probe current node from master" do
+      user node.default['gluster']['server']['ssh_user']
       code <<-CMD
-        avahi-browse-domains -at --resolve
-        gfs_hosts=$(avahi-browse-domains -at --resolve | grep "hostname" | grep -oP "\\[\\K[^\\]]+" | sort | uniq)
-        echo "Detected local machines:\n $gfs_hosts"
-        for host in ${gfs_hosts}; do ssh -o StrictHostKeychecking=no cache-storage-1-ubuntu-1404.local "sudo gluster peer probe $host"; done
+        ssh -o StrictHostKeychecking=no #{master_node} "sudo gluster peer probe $(hostname --fqdn)"
       CMD
     end
 
-    # # create the brick directory
-    directory "#{node['gluster']['server']['brick_mount_path']}/#{volume_name}/brick"
-  end
-  # works with echo 'hi' ^
-  # disable tty in sudoers and it works with sudo
-  # Defaults:<user> !requiretty
+    directory brick_dir_path
 
+    # include the current node in the cluster
+    bash "add current node as a brick" do
+      code <<-CMD
+        gluster volume add-brick #{volume_name} $(hostname --fqdn):#{brick_dir_path}
+      CMD
+      not_if "gluster volume info | grep $(hostname --fqdn):#{brick_dir_path}"
+    end
+  end
 
   # Only continue if the node is the first peer in the array
-  if volume_values['peers'].first =~ /#{node['fqdn']}/ || volume_values['peers'].first =~ /#{node['hostname']}/
-
-    # >>>>>>>>>>
-    # # Configure the trusted pool if needed
-    # volume_values['peers'].each do |peer|
-    #
-    #   # skip if peer is the current node
-    #   next if peer =~ /#{node['fqdn']}/ || peer =~ /#{node['hostname']}/
-    #
-    #   execute "gluster peer probe #{peer}" do
-    #     action :run
-    #     not_if "egrep '^hostname.+=#{peer}$' /var/lib/glusterd/peers/*"
-    #     retries node['gluster']['server']['peer_retries']
-    #     retry_delay node['gluster']['server']['peer_retry_delay']
-    #   end
-    #   # Wait here until the peer reaches connected status (needed for volume create later)
-    #   execute "gluster peer status | sed -e '/Other names:/d' | grep -A 2 -B 1 #{peer} | grep 'Peer in Cluster (Connected)'" do
-    #     action :run
-    #     retries node['gluster']['server']['peer_wait_retries']
-    #     retry_delay node['gluster']['server']['peer_wait_retry_delay']
-    #   end
-    # end
-    # <<<<<<<<<<<
-
-    ###############################
+  if master_node =~ /#{node['fqdn']}/ || master_node =~ /#{node['hostname']}/
 
     # Create the volume if it doesn't exist
     unless File.exist?("/var/lib/glusterd/vols/#{volume_name}/info")

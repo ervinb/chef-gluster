@@ -32,7 +32,7 @@ default['gluster']['server']['enable'] = true
 default['gluster']['server']['server_extend_enabled'] = true
 
 # Package dependencies
-default['gluster']['server']['dependencies'] = %w(xfsprogs lvm2 avahi-daemon avahi-utils libnss-mdn)
+default['gluster']['server']['dependencies'] = %w(xfsprogs lvm2)
 
 # Default path to use for mounting bricks
 default['gluster']['server']['brick_mount_path'] = '/gluster'
@@ -62,8 +62,11 @@ default['gluster']['server']['bricks_waiting_to_join'] = ''
 default['lvm']['di-ruby-lvm']['compile_time'] = true
 default['lvm']['di-ruby-lvm-attrib']['compile_time'] = true
 
-# SSH user used to run self probing on the master (first) node
-default['gluster']['server']['ssh_user'] = ''
+# Self probing and internal network settings
+default['gluster']['server']['avahi_dependencies'] = %w(avahi-daemon avahi-utils libnss-mdns)
+default['gluster']['use_internal_network'] = true
+default['gluster']['server']['ssh_user'] = 'vagrant'
+default['gluster']['server']['internal_nic'] = "eth1"
 
 # In your role cookbook or similar, copy one of the following examples to create your cluster
 # This example will create three gluster volumes over two nodes, with different volume types

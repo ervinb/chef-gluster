@@ -93,7 +93,7 @@ node['gluster']['server']['volumes'].each do |volume_name, volume_values|
     directory brick_dir_path
 
     # include the current node in the cluster
-    bash "add current node as a brick" do
+    bash "add current node as a brick and rebalance volume" do
       code <<-CMD
         gluster volume add-brick #{volume_name} $(hostname --fqdn):#{brick_dir_path}
         gluster volume rebalance #{volume_name} start

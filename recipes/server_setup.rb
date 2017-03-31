@@ -226,4 +226,11 @@ node['gluster']['server']['volumes'].each do |volume_name, volume_values|
       end
     end
   end
+
+  # All nodes act both as clients and servers, so we mount the master brick
+  gluster_mount volume_name do
+    server master_node
+    mount_point "/mnt/gluster/#{volume_name}"
+    action [:mount, :enable]
+  end
 end

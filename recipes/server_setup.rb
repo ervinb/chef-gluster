@@ -231,7 +231,7 @@ node['gluster']['server']['volumes'].each do |volume_name, volume_values|
   # All nodes act as clients as well, so mount the brick on self
   gluster_mount volume_name do
     server lazy { %x(hostname --fqdn).strip }
-    mount_point "/mnt/gluster/#{volume_name}"
+    mount_point node['gluster']['client']['mount_point']
     action [:mount, :enable]
   end
 end

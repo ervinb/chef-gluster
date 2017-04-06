@@ -24,5 +24,6 @@ default['gluster']['client']['package'] = value_for_platform_family(
   'default' => 'glusterfs-fuse'
 )
 
-# Gluster volumes to mount
 default['gluster']['client']['volumes'] = {}
+
+default['gluster']['client']['mount_point'] = "/mnt/gluster"

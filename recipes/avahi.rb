@@ -1,9 +1,7 @@
 # Setup avahi for local network discovery
 
 node.default['gluster']['server']['avahi_dependencies'].each do |dependency|
-  package dependency do
-    action :nothing
-  end.run_action(:install)
+  package dependency
 end
 
 service 'avahi-daemon' do

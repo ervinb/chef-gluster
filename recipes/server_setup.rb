@@ -32,6 +32,7 @@ node['gluster']['server']['volumes'].each do |volume_name, volume_values|
   brick_dir_path = "#{volume_path}/#{node['gluster']['server']['brick_dir']}"
   master_node    = volume_values['peers'].first
   ssh_user       = node.default['gluster']['server']['ssh_user']
+  ssh_port       = node.default['gluster']['server']['ssh_port']
 
   # All nodes where this cookbook is ran, are considered to be peers and server_setup
   # at the same time
@@ -85,7 +86,7 @@ node['gluster']['server']['volumes'].each do |volume_name, volume_values|
     bash "probe current node from master" do
       user ssh_user
       code <<-CMD
-        ssh -o StrictHostKeychecking=no #{master_node} "sudo gluster peer probe $(hostname --fqdn)"
+        ssh -o StrictHostKeychecking=no #{master_node} -p#{ssh_port} "sudo gluster peer probe $(hostname --fqdn)"
       CMD
       only_if "cat /etc/passwd | grep '#{ssh_user}'"
     end

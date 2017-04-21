@@ -26,4 +26,5 @@ default['gluster']['client']['package'] = value_for_platform_family(
 
 default['gluster']['client']['volumes'] = {}
 
-default['gluster']['client']['mount_point'] = "/mnt/gluster"
+default['gluster']['client']['mount_point'] = '/mnt/gluster'
+default['gluster']['client']['mount_owner'] = 'vagrant'

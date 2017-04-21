@@ -233,6 +233,7 @@ node['gluster']['server']['volumes'].each do |volume_name, volume_values|
   gluster_mount volume_name do
     server lazy { %x(hostname --fqdn).strip }
     mount_point node['gluster']['client']['mount_point']
+    owner node['gluster']['client']['mount_owner']
     action [:mount, :enable]
   end
 end

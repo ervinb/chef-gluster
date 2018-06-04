@@ -88,7 +88,7 @@ node['gluster']['server']['volumes'].each do |volume_name, volume_values|
       code <<-CMD
         ssh -o StrictHostKeychecking=no #{master_node} -p#{ssh_port} "sudo gluster peer probe $(hostname --fqdn)"
       CMD
-      only_if "cat /etc/passwd | grep '#{ssh_user}'"
+      not_if "gluster volume info | grep $(hostname --fqdn):#{brick_dir_path}"
     end
 
     directory brick_dir_path

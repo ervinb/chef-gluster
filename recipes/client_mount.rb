@@ -62,12 +62,19 @@ volumes.each do |volume_name, volume_values|
 
     Chef::Log.info("GlusterFS auto-mounting enabled: #{node['gluster']['client']['automount']}")
     if node['gluster']['client']['automount']
-      bash "enabling auto-mount for #{volume_path}" do
-        command <<-CMD
-         echo 'mkdir -p #{mount_point}; mount #{volume_path}' >> /etc/rc.local
+      # overriden by firewall
+      # postpone execution with :delayed
+      bash "auto_mount" do
+        code <<-CMD
+          sed -i '/exit 0/i mkdir -p #{mount_point}; mount #{volume_path}' /etc/rc.local
         CMD
 
+        action :nothing
         not_if "grep '#{volume_path}' /etc/rc.local"
+      end
+
+      execute "echo 'Delaying /etc/rc.local update'" do
+        notifies :run, "bash[auto_mount]", :delayed
       end
     end
   end

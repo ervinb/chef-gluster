@@ -45,6 +45,14 @@ volumes.each do |volume_name, volume_values|
       mount_options += ',backupvolfile-server=' + volume_values['backup_server']
     end
 
+    # Handle the case where the endpoint is disconnected
+    ## When GFS is unmounted, all file existance checks fail -- it's not a regular file
+    ## and throws a "ERROR: cannot open `/mnt/gluster-cache' (Transport endpoint is not connected)`"
+    bash "umount_gfs" do
+      code "umount #{mount_point}"
+      only_if "mount -l | grep '#{mount_point}' && ! [[ -e #{mount_point} ]]"
+    end
+
     # Ensure the mount point exists
     directory mount_point do
       recursive true

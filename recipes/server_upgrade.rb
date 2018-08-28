@@ -6,6 +6,11 @@ bash "kill glusterfsd and glusterd" do
   CMD
 end
 
+# Upgrade the server package
+package node['gluster']['server']['package'] do
+  action :upgrade
+end
+
 include_recipe "gluster::server_install"
 
 include_recipe "gluster::server_setup"

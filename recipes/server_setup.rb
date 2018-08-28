@@ -196,6 +196,17 @@ node['gluster']['server']['volumes'].each do |volume_name, volume_values|
       not_if { `gluster volume info #{volume_name} | grep Status`.include? 'Started' }
     end
 
+   # Restrict access to the volume if configured
+   gluster_volume_option "#{volume_name}/auth.allow" do
+     if volume_values['allowed_hosts']
+       value volume_values['allowed_hosts'].join(',')
+       action :set
+     else
+       action :reset
+     end
+   end
+  end
+
   # All nodes act as clients as well, so mount the brick on self
   gluster_mount volume_name do
     server lazy { %x(hostname --fqdn).strip }

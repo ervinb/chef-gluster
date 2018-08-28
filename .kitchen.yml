@@ -122,7 +122,7 @@ suites:
       additional_disk:
         size: 10
     run_list:
-      - recipe[testcookbook::set_hostname]
+      - recipe[testcookbook]
       - recipe[gluster::server]
     attributes:
       gluster:
@@ -133,7 +133,6 @@ suites:
           volumes:
             gv0:
               peers:
-                - "gluster2"
                 - "gluster1"
               replica_count: 2
               volume_type: "distributed"
@@ -152,7 +151,7 @@ suites:
       additional_disk:
         size: 10
     run_list:
-      - recipe[testcookbook::set_hostname]
+      - recipe[testcookbook]
       - recipe[gluster::server]
     attributes:
       gluster:
@@ -163,7 +162,6 @@ suites:
           volumes:
             gv0:
               peers:
-                - "gluster2"
                 - "gluster1"
               replica_count: 2
               volume_type: "distributed"

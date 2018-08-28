@@ -196,37 +196,15 @@ node['gluster']['server']['volumes'].each do |volume_name, volume_values|
       not_if { `gluster volume info #{volume_name} | grep Status`.include? 'Started' }
     end
 
-    # Restrict access to the volume if configured
-    gluster_volume_option "#{volume_name}/auth.allow" do
-      if volume_values['allowed_hosts']
-        value volume_values['allowed_hosts'].join(',')
-        action :set
-      else
-        action :reset
-      end
-    end
-
-    # Configure volume quote if configured
-    if volume_values['quota']
-      # Enable quota
-      execute "gluster volume quota #{volume_name} enable" do
-        action :run
-        not_if "egrep '^features.quota=on$' /var/lib/glusterd/vols/#{volume_name}/info"
-      end
-
-      # Configure quota for the root of the volume
-      execute "gluster volume quota #{volume_name} limit-usage / #{volume_values['quota']}" do
-        action :run
-        not_if "egrep '^features.limit-usage=/:#{volume_values['quota']}$' /var/lib/glusterd/vols/#{volume_name}/info"
-      end
-    end
-    if volume_values['options']
-      volume_values['options'].each do |option_key, option_value|
-        gluster_volume_option "#{volume_name}/#{option_key}" do
-          value option_value
-        end
-      end
-    end
+   # Restrict access to the volume if configured
+   gluster_volume_option "#{volume_name}/auth.allow" do
+     if volume_values['allowed_hosts']
+       value volume_values['allowed_hosts'].join(',')
+       action :set
+     else
+       action :reset
+     end
+   end
   end
 
   # All nodes act as clients as well, so mount the brick on self

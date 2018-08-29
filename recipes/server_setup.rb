@@ -31,8 +31,8 @@ node['gluster']['server']['volumes'].each do |volume_name, volume_values|
   volume_path    = "#{node['gluster']['server']['brick_mount_path']}/#{volume_name}"
   brick_dir_path = "#{volume_path}/#{node['gluster']['server']['brick_dir']}"
   master_node    = volume_values['peers'].first
-  ssh_user       = node.default['gluster']['server']['ssh_user']
-  ssh_port       = node.default['gluster']['server']['ssh_port']
+  ssh_user       = node['gluster']['server']['ssh_user']
+  ssh_port       = node['gluster']['server']['ssh_port']
 
   # All nodes where this cookbook is ran, are considered to be peers and server_setup
   # at the same time

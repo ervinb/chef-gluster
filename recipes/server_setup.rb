@@ -31,8 +31,8 @@ node['gluster']['server']['volumes'].each do |volume_name, volume_values|
   volume_path    = "#{node['gluster']['server']['brick_mount_path']}/#{volume_name}"
   brick_dir_path = "#{volume_path}/#{node['gluster']['server']['brick_dir']}"
   master_node    = volume_values['peers'].first
-  ssh_user       = node.default['gluster']['server']['ssh_user']
-  ssh_port       = node.default['gluster']['server']['ssh_port']
+  ssh_user       = node['gluster']['server']['ssh_user']
+  ssh_port       = node['gluster']['server']['ssh_port']
 
   # All nodes where this cookbook is ran, are considered to be peers and server_setup
   # at the same time
@@ -84,9 +84,8 @@ node['gluster']['server']['volumes'].each do |volume_name, volume_values|
     # Note that the hostname will be resolved on the current node and not on
     # the master node -- '$' isn't esacaped
     bash "probe current node from master" do
-      user ssh_user
       code <<-CMD
-        ssh -o StrictHostKeychecking=no #{master_node} -p#{ssh_port} "sudo gluster peer probe $(hostname --fqdn)"
+        ssh -o StrictHostKeychecking=no #{ssh_user}@#{master_node} -p#{ssh_port} "sudo gluster peer probe $(hostname --fqdn)"
       CMD
       not_if "gluster volume info | grep $(hostname --fqdn):#{brick_dir_path}"
     end
